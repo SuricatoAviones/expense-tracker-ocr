@@ -13,14 +13,22 @@ interface Expense {
   amount: number;
   description: string;
   date: string;
+  accountId: string | null;
   receipt: string | null;
   category: Category;
+  account: { name: string } | null;
+}
+
+interface Account {
+  id: string;
+  name: string;
 }
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [form, setForm] = useState({ amount: "", description: "", date: "", categoryId: "" });
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [form, setForm] = useState({ amount: "", description: "", date: "", categoryId: "", accountId: "" });
   const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [categorizing, setCategorizing] = useState(false);
@@ -29,6 +37,7 @@ export default function ExpensesPage() {
   useEffect(() => {
     loadExpenses();
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
+    fetch("/api/accounts").then((r) => r.json()).then(setAccounts);
   }, []);
 
   useEffect(() => {
@@ -59,7 +68,7 @@ export default function ExpensesPage() {
           body: JSON.stringify(form),
         });
       }
-      setForm({ amount: "", description: "", date: "", categoryId: "" });
+      setForm({ amount: "", description: "", date: "", categoryId: "", accountId: "" });
       loadExpenses();
     } finally {
       setLoading(false);
@@ -79,6 +88,7 @@ export default function ExpensesPage() {
       description: exp.description,
       date: exp.date.split("T")[0],
       categoryId: exp.category.id,
+      accountId: exp.accountId || "",
     });
   }
 
@@ -88,7 +98,7 @@ export default function ExpensesPage() {
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700 space-y-4">
         <h2 className="font-semibold">{editId ? "Editar Gasto" : "Nuevo Gasto"}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <input
             type="number"
             step="0.01"
@@ -121,6 +131,17 @@ export default function ExpensesPage() {
             <option value="">Categoria</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <select
+            value={form.accountId}
+            onChange={(e) => setForm({ ...form, accountId: e.target.value })}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+            required
+          >
+            <option value="">Cuenta</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
         </div>
@@ -158,7 +179,7 @@ export default function ExpensesPage() {
             )}
           </button>
           {editId && (
-            <button type="button" onClick={() => { setEditId(null); setForm({ amount: "", description: "", date: "", categoryId: "" }); }} className="px-6 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-500">
+            <button type="button" onClick={() => { setEditId(null); setForm({ amount: "", description: "", date: "", categoryId: "", accountId: "" }); }} className="px-6 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-500">
               Cancelar
             </button>
           )}
@@ -196,7 +217,7 @@ export default function ExpensesPage() {
                   <div>
                     <p className="font-medium">{exp.description}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {exp.category.name} - {new Date(exp.date).toLocaleDateString("es")}
+                      {exp.category.name} - {exp.account?.name || "Sin cuenta"} - {new Date(exp.date).toLocaleDateString("es")}
                     </p>
                   </div>
                 </div>

@@ -8,10 +8,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
 
-  const expense = await prisma.expense.findFirst({ where: { id, userId: session.id } });
-  if (!expense) return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 });
+  const income = await prisma.income.findFirst({ where: { id, userId: session.id } });
+  if (!income) return NextResponse.json({ error: "Ingreso no encontrado" }, { status: 404 });
 
-  await prisma.expense.delete({ where: { id } });
+  await prisma.income.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
 
@@ -21,8 +21,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
 
-  const expense = await prisma.expense.findFirst({ where: { id, userId: session.id } });
-  if (!expense) return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 });
+  const income = await prisma.income.findFirst({ where: { id, userId: session.id } });
+  if (!income) return NextResponse.json({ error: "Ingreso no encontrado" }, { status: 404 });
 
   const body = await req.json();
 
@@ -31,16 +31,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (!account) return NextResponse.json({ error: "Cuenta no valida" }, { status: 400 });
   }
 
-  const updated = await prisma.expense.update({
+  const updated = await prisma.income.update({
     where: { id },
     data: {
       amount: body.amount ? Number(body.amount) : undefined,
       description: body.description || undefined,
       date: body.date ? new Date(body.date) : undefined,
-      categoryId: body.categoryId || undefined,
       accountId: body.accountId || undefined,
     },
-    include: { category: true, account: true },
+    include: { account: true },
   });
 
   return NextResponse.json(updated);

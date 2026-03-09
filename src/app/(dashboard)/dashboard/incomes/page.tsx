@@ -1,0 +1,158 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface Income {
+  id: string;
+  amount: number;
+  description: string;
+  date: string;
+  accountId: string | null;
+  account: { name: string } | null;
+}
+
+interface Account {
+  id: string;
+  name: string;
+}
+
+export default function IncomesPage() {
+  const [incomes, setIncomes] = useState<Income[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [form, setForm] = useState({ amount: "", description: "", date: "", accountId: "" });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadIncomes();
+    fetch("/api/accounts").then((r) => r.json()).then(setAccounts);
+  }, []);
+
+  function loadIncomes() {
+    fetch("/api/incomes").then((r) => r.json()).then(setIncomes);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (editId) {
+        await fetch(`/api/incomes/${editId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+        setEditId(null);
+      } else {
+        await fetch("/api/incomes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+      }
+      setForm({ amount: "", description: "", date: "", accountId: "" });
+      loadIncomes();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Eliminar este ingreso?")) return;
+    await fetch(`/api/incomes/${id}`, { method: "DELETE" });
+    loadIncomes();
+  }
+
+  function handleEdit(income: Income) {
+    setEditId(income.id);
+    setForm({
+      amount: String(income.amount),
+      description: income.description,
+      date: income.date.split("T")[0],
+      accountId: income.accountId || "",
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Ingresos</h1>
+
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700 space-y-4">
+        <h2 className="font-semibold">{editId ? "Editar Ingreso" : "Nuevo Ingreso"}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <input
+            type="number"
+            step="0.01"
+            placeholder="Monto"
+            value={form.amount}
+            onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Descripcion"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+            required
+          />
+          <input
+            type="date"
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+          />
+          <select
+            value={form.accountId}
+            onChange={(e) => setForm({ ...form, accountId: e.target.value })}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+            required
+          >
+            <option value="">Cuenta</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" disabled={loading} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50">
+            {editId ? "Actualizar" : "Agregar"}
+          </button>
+          {editId && (
+            <button type="button" onClick={() => { setEditId(null); setForm({ amount: "", description: "", date: "", accountId: "" }); }} className="px-6 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-500">
+              Cancelar
+            </button>
+          )}
+        </div>
+      </form>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700">
+        <div className="p-4 border-b dark:border-gray-700">
+          <h2 className="font-semibold">Lista de Ingresos</h2>
+        </div>
+        {incomes.length === 0 ? (
+          <p className="p-6 text-gray-400 text-sm">No hay ingresos registrados</p>
+        ) : (
+          <div className="divide-y dark:divide-gray-700">
+            {incomes.map((income) => (
+              <div key={income.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <div>
+                  <p className="font-medium">{income.description}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {income.account?.name || "Sin cuenta"} - {new Date(income.date).toLocaleDateString("es")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold text-lg text-emerald-600 dark:text-emerald-400">${income.amount.toFixed(2)}</span>
+                  <button onClick={() => handleEdit(income)} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Editar</button>
+                  <button onClick={() => handleDelete(income.id)} className="text-sm text-red-500 dark:text-red-400 hover:underline">Eliminar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

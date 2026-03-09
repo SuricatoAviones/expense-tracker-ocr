@@ -9,7 +9,6 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const month = url.searchParams.get("month");
   const year = url.searchParams.get("year");
-  const categoryId = url.searchParams.get("categoryId");
   const accountId = url.searchParams.get("accountId");
 
   const where: Record<string, unknown> = { userId: session.id };
@@ -20,21 +19,17 @@ export async function GET(req: Request) {
     where.date = { gte: startDate, lt: endDate };
   }
 
-  if (categoryId) {
-    where.categoryId = categoryId;
-  }
-
   if (accountId) {
     where.accountId = accountId;
   }
 
-  const expenses = await prisma.expense.findMany({
+  const incomes = await prisma.income.findMany({
     where,
-    include: { category: true, account: true },
+    include: { account: true },
     orderBy: { date: "desc" },
   });
 
-  return NextResponse.json(expenses);
+  return NextResponse.json(incomes);
 }
 
 export async function POST(req: Request) {
@@ -43,10 +38,10 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { amount, description, date, categoryId, accountId, ocrText, receipt } = body;
+    const { amount, description, date, accountId } = body;
 
-    if (!amount || !description || !categoryId || !accountId) {
-      return NextResponse.json({ error: "Campos requeridos: amount, description, categoryId, accountId" }, { status: 400 });
+    if (!amount || !description || !accountId) {
+      return NextResponse.json({ error: "Campos requeridos: amount, description, accountId" }, { status: 400 });
     }
 
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: session.id } });
@@ -54,23 +49,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Cuenta no valida" }, { status: 400 });
     }
 
-    const expense = await prisma.expense.create({
+    const income = await prisma.income.create({
       data: {
         amount: Number(amount),
         description,
         date: date ? new Date(date) : new Date(),
-        categoryId,
         accountId,
-        receipt: receipt || null,
-        ocrText: ocrText || null,
         userId: session.id,
       },
-      include: { category: true, account: true },
+      include: { account: true },
     });
 
-    return NextResponse.json(expense, { status: 201 });
+    return NextResponse.json(income, { status: 201 });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Error al crear gasto" }, { status: 500 });
+    return NextResponse.json({ error: "Error al crear ingreso" }, { status: 500 });
   }
 }

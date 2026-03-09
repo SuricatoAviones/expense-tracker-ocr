@@ -7,12 +7,18 @@ interface Category {
   name: string;
 }
 
+interface Account {
+  id: string;
+  name: string;
+}
+
 export default function ScanPage() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [ocrText, setOcrText] = useState("");
   const [processing, setProcessing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
-  const [form, setForm] = useState({ amount: "", description: "", categoryId: "", date: "" });
+  const [form, setForm] = useState({ amount: "", description: "", categoryId: "", accountId: "", date: "" });
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -23,6 +29,7 @@ export default function ScanPage() {
 
   useEffect(() => {
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
+    fetch("/api/accounts").then((r) => r.json()).then(setAccounts);
   }, []);
 
   const processFile = useCallback(async (file: File) => {
@@ -53,6 +60,7 @@ export default function ScanPage() {
         amount: data.amount ? String(data.amount) : "",
         description: data.description || "Recibo escaneado",
         categoryId: catMatch?.id || "",
+        accountId: accounts[0]?.id || "",
         date: data.date || new Date().toISOString().split("T")[0],
       });
     } catch (err) {
@@ -61,7 +69,7 @@ export default function ScanPage() {
     } finally {
       setProcessing(false);
     }
-  }, [categories]);
+  }, [categories, accounts]);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -103,7 +111,7 @@ export default function ScanPage() {
         });
         if (res.ok) {
           setSaved(true);
-          setForm({ amount: "", description: "", categoryId: "", date: "" });
+          setForm({ amount: "", description: "", categoryId: "", accountId: "", date: "" });
           setOcrText("");
           setPreview(null);
           setImageUrl(null);
@@ -217,6 +225,20 @@ export default function ScanPage() {
                     onChange={(e) => setForm({ ...form, date: e.target.value })}
                     className="w-full mt-1 px-3 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
                   />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Cuenta</label>
+                  <select
+                    value={form.accountId}
+                    onChange={(e) => setForm({ ...form, accountId: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+                    required
+                  >
+                    <option value="">Seleccionar cuenta</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <button type="submit" disabled={saving} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 transition">
                   {saving ? "Guardando..." : "Guardar Gasto"}

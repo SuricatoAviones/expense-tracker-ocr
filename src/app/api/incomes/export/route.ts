@@ -13,31 +13,31 @@ export async function GET(req: Request) {
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 1));
 
-  const expenses = await prisma.expense.findMany({
+  const incomes = await prisma.income.findMany({
     where: { userId: session.id, date: { gte: startDate, lt: endDate } },
-    include: { category: true, account: true },
+    include: { account: true },
     orderBy: { date: "asc" },
   });
 
-  const header = "Fecha,Descripcion,Categoria,Cuenta,Monto\n";
-  const rows = expenses
-    .map((e) => {
-      const date = e.date.toISOString().split("T")[0];
-      const desc = e.description.replace(/,/g, ";");
-      const accountName = e.account?.name?.replace(/,/g, ";") || "Sin cuenta";
-      return `${date},${desc},${e.category.name},${accountName},${e.amount.toFixed(2)}`;
+  const header = "Fecha,Descripcion,Cuenta,Monto\n";
+  const rows = incomes
+    .map((i) => {
+      const date = i.date.toISOString().split("T")[0];
+      const desc = i.description.replace(/,/g, ";");
+      const accountName = i.account?.name?.replace(/,/g, ";") || "Sin cuenta";
+      return `${date},${desc},${accountName},${i.amount.toFixed(2)}`;
     })
     .join("\n");
 
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
-  const footer = `\n\nTotal,,,,${total.toFixed(2)}`;
+  const total = incomes.reduce((s, i) => s + i.amount, 0);
+  const footer = `\n\nTotal,,,${total.toFixed(2)}`;
 
   const csv = header + rows + footer;
 
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv",
-      "Content-Disposition": `attachment; filename="gastos-${year}-${String(month).padStart(2, "0")}.csv"`,
+      "Content-Disposition": `attachment; filename=\"ingresos-${year}-${String(month).padStart(2, "0")}.csv\"`,
     },
   });
 }
