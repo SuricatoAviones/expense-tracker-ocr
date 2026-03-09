@@ -10,6 +10,7 @@ export async function GET(req: Request) {
   const month = url.searchParams.get("month");
   const year = url.searchParams.get("year");
   const categoryId = url.searchParams.get("categoryId");
+  const accountId = url.searchParams.get("accountId");
 
   const where: Record<string, unknown> = { userId: session.id };
 
@@ -23,9 +24,13 @@ export async function GET(req: Request) {
     where.categoryId = categoryId;
   }
 
+  if (accountId) {
+    where.accountId = accountId;
+  }
+
   const expenses = await prisma.expense.findMany({
     where,
-    include: { category: true },
+    include: { category: true, account: true },
     orderBy: { date: "desc" },
   });
 
@@ -38,10 +43,15 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { amount, description, date, categoryId, ocrText, receipt } = body;
+    const { amount, description, date, categoryId, accountId, ocrText, receipt } = body;
 
-    if (!amount || !description || !categoryId) {
-      return NextResponse.json({ error: "Campos requeridos: amount, description, categoryId" }, { status: 400 });
+    if (!amount || !description || !categoryId || !accountId) {
+      return NextResponse.json({ error: "Campos requeridos: amount, description, categoryId, accountId" }, { status: 400 });
+    }
+
+    const account = await prisma.account.findFirst({ where: { id: accountId, userId: session.id } });
+    if (!account) {
+      return NextResponse.json({ error: "Cuenta no valida" }, { status: 400 });
     }
 
     const expense = await prisma.expense.create({
@@ -50,11 +60,12 @@ export async function POST(req: Request) {
         description,
         date: date ? new Date(date) : new Date(),
         categoryId,
+        accountId,
         receipt: receipt || null,
         ocrText: ocrText || null,
         userId: session.id,
       },
-      include: { category: true },
+      include: { category: true, account: true },
     });
 
     return NextResponse.json(expense, { status: 201 });

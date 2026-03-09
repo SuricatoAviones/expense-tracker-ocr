@@ -25,13 +25,21 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!income) return NextResponse.json({ error: "Ingreso no encontrado" }, { status: 404 });
 
   const body = await req.json();
+
+  if (body.accountId) {
+    const account = await prisma.account.findFirst({ where: { id: body.accountId, userId: session.id } });
+    if (!account) return NextResponse.json({ error: "Cuenta no valida" }, { status: 400 });
+  }
+
   const updated = await prisma.income.update({
     where: { id },
     data: {
       amount: body.amount ? Number(body.amount) : undefined,
       description: body.description || undefined,
       date: body.date ? new Date(body.date) : undefined,
+      accountId: body.accountId || undefined,
     },
+    include: { account: true },
   });
 
   return NextResponse.json(updated);

@@ -7,16 +7,25 @@ interface Income {
   amount: number;
   description: string;
   date: string;
+  accountId: string | null;
+  account: { name: string } | null;
+}
+
+interface Account {
+  id: string;
+  name: string;
 }
 
 export default function IncomesPage() {
   const [incomes, setIncomes] = useState<Income[]>([]);
-  const [form, setForm] = useState({ amount: "", description: "", date: "" });
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [form, setForm] = useState({ amount: "", description: "", date: "", accountId: "" });
   const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadIncomes();
+    fetch("/api/accounts").then((r) => r.json()).then(setAccounts);
   }, []);
 
   function loadIncomes() {
@@ -41,7 +50,7 @@ export default function IncomesPage() {
           body: JSON.stringify(form),
         });
       }
-      setForm({ amount: "", description: "", date: "" });
+      setForm({ amount: "", description: "", date: "", accountId: "" });
       loadIncomes();
     } finally {
       setLoading(false);
@@ -60,6 +69,7 @@ export default function IncomesPage() {
       amount: String(income.amount),
       description: income.description,
       date: income.date.split("T")[0],
+      accountId: income.accountId || "",
     });
   }
 
@@ -69,7 +79,7 @@ export default function IncomesPage() {
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700 space-y-4">
         <h2 className="font-semibold">{editId ? "Editar Ingreso" : "Nuevo Ingreso"}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <input
             type="number"
             step="0.01"
@@ -93,13 +103,24 @@ export default function IncomesPage() {
             onChange={(e) => setForm({ ...form, date: e.target.value })}
             className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
           />
+          <select
+            value={form.accountId}
+            onChange={(e) => setForm({ ...form, accountId: e.target.value })}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+            required
+          >
+            <option value="">Cuenta</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
         </div>
         <div className="flex gap-2">
           <button type="submit" disabled={loading} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50">
             {editId ? "Actualizar" : "Agregar"}
           </button>
           {editId && (
-            <button type="button" onClick={() => { setEditId(null); setForm({ amount: "", description: "", date: "" }); }} className="px-6 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-500">
+            <button type="button" onClick={() => { setEditId(null); setForm({ amount: "", description: "", date: "", accountId: "" }); }} className="px-6 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-500">
               Cancelar
             </button>
           )}
@@ -119,7 +140,7 @@ export default function IncomesPage() {
                 <div>
                   <p className="font-medium">{income.description}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {new Date(income.date).toLocaleDateString("es")}
+                    {income.account?.name || "Sin cuenta"} - {new Date(income.date).toLocaleDateString("es")}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

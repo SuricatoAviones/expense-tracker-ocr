@@ -25,6 +25,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!expense) return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 });
 
   const body = await req.json();
+
+  if (body.accountId) {
+    const account = await prisma.account.findFirst({ where: { id: body.accountId, userId: session.id } });
+    if (!account) return NextResponse.json({ error: "Cuenta no valida" }, { status: 400 });
+  }
+
   const updated = await prisma.expense.update({
     where: { id },
     data: {
@@ -32,8 +38,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       description: body.description || undefined,
       date: body.date ? new Date(body.date) : undefined,
       categoryId: body.categoryId || undefined,
+      accountId: body.accountId || undefined,
     },
-    include: { category: true },
+    include: { category: true, account: true },
   });
 
   return NextResponse.json(updated);

@@ -15,21 +15,22 @@ export async function GET(req: Request) {
 
   const expenses = await prisma.expense.findMany({
     where: { userId: session.id, date: { gte: startDate, lt: endDate } },
-    include: { category: true },
+    include: { category: true, account: true },
     orderBy: { date: "asc" },
   });
 
-  const header = "Fecha,Descripcion,Categoria,Monto\n";
+  const header = "Fecha,Descripcion,Categoria,Cuenta,Monto\n";
   const rows = expenses
     .map((e) => {
       const date = e.date.toISOString().split("T")[0];
       const desc = e.description.replace(/,/g, ";");
-      return `${date},${desc},${e.category.name},${e.amount.toFixed(2)}`;
+      const accountName = e.account?.name?.replace(/,/g, ";") || "Sin cuenta";
+      return `${date},${desc},${e.category.name},${accountName},${e.amount.toFixed(2)}`;
     })
     .join("\n");
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
-  const footer = `\n\nTotal,,,${ total.toFixed(2)}`;
+  const footer = `\n\nTotal,,,,${total.toFixed(2)}`;
 
   const csv = header + rows + footer;
 

@@ -16,6 +16,7 @@ model User {
   expenses  Expense[]
   incomes   Income[]
   budgets   Budget[]
+  accounts  Account[]
 }
 
 model Category {
@@ -36,8 +37,10 @@ model Expense {
   ocrText     String?
   userId      String
   categoryId  String
+  accountId   String?
   user        User     @relation(fields: [userId], references: [id])
   category    Category @relation(fields: [categoryId], references: [id])
+  account     Account? @relation(fields: [accountId], references: [id])
   createdAt   DateTime @default(now())
 }
 
@@ -61,6 +64,22 @@ model Income {
   description String
   date        DateTime @default(now())
   userId      String
+  accountId   String?
   user        User     @relation(fields: [userId], references: [id])
+  account     Account? @relation(fields: [accountId], references: [id])
   createdAt   DateTime @default(now())
+}
+
+model Account {
+  id             String    @id @default(cuid())
+  name           String
+  type           String    @default("bank")
+  initialBalance Float     @default(0)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  incomes        Income[]
+  expenses       Expense[]
+  createdAt      DateTime  @default(now())
+
+  @@unique([userId, name])
 }

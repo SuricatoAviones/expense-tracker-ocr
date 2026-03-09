@@ -9,6 +9,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const month = url.searchParams.get("month");
   const year = url.searchParams.get("year");
+  const accountId = url.searchParams.get("accountId");
 
   const where: Record<string, unknown> = { userId: session.id };
 
@@ -18,8 +19,13 @@ export async function GET(req: Request) {
     where.date = { gte: startDate, lt: endDate };
   }
 
+  if (accountId) {
+    where.accountId = accountId;
+  }
+
   const incomes = await prisma.income.findMany({
     where,
+    include: { account: true },
     orderBy: { date: "desc" },
   });
 
@@ -32,10 +38,15 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { amount, description, date } = body;
+    const { amount, description, date, accountId } = body;
 
-    if (!amount || !description) {
-      return NextResponse.json({ error: "Campos requeridos: amount, description" }, { status: 400 });
+    if (!amount || !description || !accountId) {
+      return NextResponse.json({ error: "Campos requeridos: amount, description, accountId" }, { status: 400 });
+    }
+
+    const account = await prisma.account.findFirst({ where: { id: accountId, userId: session.id } });
+    if (!account) {
+      return NextResponse.json({ error: "Cuenta no valida" }, { status: 400 });
     }
 
     const income = await prisma.income.create({
@@ -43,8 +54,10 @@ export async function POST(req: Request) {
         amount: Number(amount),
         description,
         date: date ? new Date(date) : new Date(),
+        accountId,
         userId: session.id,
       },
+      include: { account: true },
     });
 
     return NextResponse.json(income, { status: 201 });
