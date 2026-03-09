@@ -27,11 +27,24 @@ interface Stats {
   savingsRate: number | null;
   count: number;
   byCategory: { name: string; color: string; total: number; count: number }[];
+  byAccount: { account: string; income: number; expense: number; net: number }[];
+  accountStats: {
+    id: string;
+    name: string;
+    type: string;
+    initialBalance: number;
+    incomeTotal: number;
+    expenseTotal: number;
+    currentBalance: number;
+  }[];
+  netWorth: number;
   dailyTotals: { date: string; amount: number; cumulative: number }[];
   weeklyTotals: { week: string; amount: number }[];
   alerts: { category: string; budget: number; spent: number; percentage: number }[];
   recentExpenses: RecentExpense[];
+  recentIncomes: { id: string; amount: number; description: string; date: string; account: string }[];
   topExpense: { amount: number; description: string; category: string } | null;
+  topIncome: { amount: number; description: string; account: string } | null;
   allTimeRecent: RecentExpense[];
 }
 
@@ -163,6 +176,24 @@ export default function DashboardPage() {
           ) : (
             <p className="text-3xl font-bold text-gray-300 dark:text-gray-600">-</p>
           )}
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Mayor Ingreso</p>
+          {stats.topIncome ? (
+            <>
+              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">${stats.topIncome.amount.toFixed(2)}</p>
+              <p className="text-xs text-gray-400 mt-1 truncate">{stats.topIncome.description} - {stats.topIncome.account}</p>
+            </>
+          ) : (
+            <p className="text-3xl font-bold text-gray-300 dark:text-gray-600">-</p>
+          )}
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Patrimonio en Cuentas</p>
+          <p className={`text-3xl font-bold ${stats.netWorth >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+            ${stats.netWorth.toFixed(2)}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">{stats.accountStats.length} cuentas activas</p>
         </div>
       </div>
 
@@ -305,6 +336,76 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* Accounts and income analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700">
+          <h2 className="font-semibold mb-4">Flujo por Cuenta (Mes)</h2>
+          {stats.byAccount.length > 0 ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={stats.byAccount}>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
+                <XAxis dataKey="account" tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} />
+                <YAxis tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} />
+                <Tooltip
+                  formatter={(v, name) => [`$${Number(v).toFixed(2)}`, name === "income" ? "Ingresos" : "Gastos"]}
+                  contentStyle={{ backgroundColor: "var(--tooltip-bg, #fff)", border: "1px solid var(--tooltip-border, #e5e7eb)", borderRadius: "8px" }}
+                />
+                <Legend />
+                <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" name="Gastos" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-400 text-sm">No hay movimientos por cuenta este mes</p>
+          )}
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700">
+          <h2 className="font-semibold mb-4">Top Cuentas por Saldo</h2>
+          {stats.accountStats.length > 0 ? (
+            <div className="space-y-3">
+              {stats.accountStats.slice(0, 6).map((acc) => (
+                <div key={acc.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40">
+                  <div>
+                    <p className="font-medium text-sm">{acc.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">+${acc.incomeTotal.toFixed(2)} / -${acc.expenseTotal.toFixed(2)}</p>
+                  </div>
+                  <span className={`font-semibold ${acc.currentBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                    ${acc.currentBalance.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">No hay cuentas creadas aun</p>
+          )}
+        </div>
+      </div>
+
+      {/* Recent incomes */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700">
+        <div className="p-4 border-b dark:border-gray-700">
+          <h2 className="font-semibold">Ultimos Ingresos del Mes</h2>
+        </div>
+        {stats.recentIncomes.length === 0 ? (
+          <p className="p-6 text-gray-400 text-sm">No hay ingresos registrados para este periodo.</p>
+        ) : (
+          <div className="divide-y dark:divide-gray-700">
+            {stats.recentIncomes.map((income) => (
+              <div key={income.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <div>
+                  <p className="font-medium text-sm">{income.description}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {income.account} - {new Date(income.date).toLocaleDateString("es")}
+                  </p>
+                </div>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">${income.amount.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Recent expenses */}
       {(() => {

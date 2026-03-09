@@ -19,7 +19,7 @@ export async function GET(req: Request) {
       userId: session.id,
       date: { gte: startDate, lt: endDate },
     },
-    include: { category: true },
+    include: { category: true, account: true },
     orderBy: { date: "desc" },
   });
 
@@ -29,6 +29,13 @@ export async function GET(req: Request) {
       userId: session.id,
       date: { gte: startDate, lt: endDate },
     },
+    include: { account: true },
+    orderBy: { date: "desc" },
+  });
+
+  const accounts = await prisma.account.findMany({
+    where: { userId: session.id },
+    orderBy: { createdAt: "asc" },
   });
 
   // Previous month for comparison
@@ -55,6 +62,23 @@ export async function GET(req: Request) {
   const balance = incomeTotal - total;
   const prevBalance = prevIncomeTotal - prevTotal;
   const savingsRate = incomeTotal > 0 ? (balance / incomeTotal) * 100 : null;
+
+  const byAccountMap = new Map<string, { account: string; income: number; expense: number; net: number }>();
+  for (const income of incomes) {
+    const name = income.account?.name || "Sin cuenta";
+    const current = byAccountMap.get(name) || { account: name, income: 0, expense: 0, net: 0 };
+    current.income += income.amount;
+    current.net = current.income - current.expense;
+    byAccountMap.set(name, current);
+  }
+  for (const expense of expenses) {
+    const name = expense.account?.name || "Sin cuenta";
+    const current = byAccountMap.get(name) || { account: name, income: 0, expense: 0, net: 0 };
+    current.expense += expense.amount;
+    current.net = current.income - current.expense;
+    byAccountMap.set(name, current);
+  }
+  const byAccount = Array.from(byAccountMap.values()).sort((a, b) => b.net - a.net);
 
   const byCategory = expenses.reduce<Record<string, { name: string; color: string; total: number; count: number }>>((acc, e) => {
     const key = e.category.name;
@@ -132,6 +156,57 @@ export async function GET(req: Request) {
     ? expenses.reduce((max, e) => (e.amount > max.amount ? e : max))
     : null;
 
+  const topIncome = incomes.length
+    ? incomes.reduce((max, i) => (i.amount > max.amount ? i : max))
+    : null;
+
+  const recentIncomes = incomes.slice(0, 10).map((i) => ({
+    id: i.id,
+    amount: i.amount,
+    description: i.description,
+    date: i.date.toISOString(),
+    account: i.account?.name || "Sin cuenta",
+  }));
+
+  const [incomeByAccountAllTime, expenseByAccountAllTime] = await Promise.all([
+    prisma.income.groupBy({
+      by: ["accountId"],
+      where: { userId: session.id },
+      _sum: { amount: true },
+    }),
+    prisma.expense.groupBy({
+      by: ["accountId"],
+      where: { userId: session.id },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const allIncomeMap = new Map<string, number>();
+  for (const row of incomeByAccountAllTime) {
+    if (row.accountId) allIncomeMap.set(row.accountId, row._sum.amount || 0);
+  }
+
+  const allExpenseMap = new Map<string, number>();
+  for (const row of expenseByAccountAllTime) {
+    if (row.accountId) allExpenseMap.set(row.accountId, row._sum.amount || 0);
+  }
+
+  const accountStats = accounts.map((account) => {
+    const incomeAcc = allIncomeMap.get(account.id) || 0;
+    const expenseAcc = allExpenseMap.get(account.id) || 0;
+    return {
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      initialBalance: account.initialBalance,
+      incomeTotal: incomeAcc,
+      expenseTotal: expenseAcc,
+      currentBalance: account.initialBalance + incomeAcc - expenseAcc,
+    };
+  }).sort((a, b) => b.currentBalance - a.currentBalance);
+
+  const netWorth = accountStats.reduce((sum, acc) => sum + acc.currentBalance, 0);
+
   // All-time recent (when current month is empty, show latest expenses regardless of month)
   let allTimeRecent: typeof recentExpenses = [];
   if (expenses.length === 0) {
@@ -161,12 +236,19 @@ export async function GET(req: Request) {
     savingsRate,
     count: expenses.length,
     byCategory: Object.values(byCategory).sort((a, b) => b.total - a.total),
+    byAccount,
+    accountStats,
+    netWorth,
     dailyTotals,
     weeklyTotals,
     alerts,
     recentExpenses,
+    recentIncomes,
     topExpense: topExpense
       ? { amount: topExpense.amount, description: topExpense.description, category: topExpense.category.name }
+      : null,
+    topIncome: topIncome
+      ? { amount: topIncome.amount, description: topIncome.description, account: topIncome.account?.name || "Sin cuenta" }
       : null,
     allTimeRecent,
   });
