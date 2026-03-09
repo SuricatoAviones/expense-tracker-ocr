@@ -23,6 +23,14 @@ export async function GET(req: Request) {
     orderBy: { date: "desc" },
   });
 
+  // Current month incomes
+  const incomes = await prisma.income.findMany({
+    where: {
+      userId: session.id,
+      date: { gte: startDate, lt: endDate },
+    },
+  });
+
   // Previous month for comparison
   const prevStart = new Date(Date.UTC(year, month - 2, 1));
   const prevEnd = new Date(Date.UTC(year, month - 1, 1));
@@ -34,7 +42,19 @@ export async function GET(req: Request) {
   });
   const prevTotal = prevExpenses.reduce((s, e) => s + e.amount, 0);
 
+  const prevIncomes = await prisma.income.findMany({
+    where: {
+      userId: session.id,
+      date: { gte: prevStart, lt: prevEnd },
+    },
+  });
+  const prevIncomeTotal = prevIncomes.reduce((s, i) => s + i.amount, 0);
+
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const incomeTotal = incomes.reduce((sum, i) => sum + i.amount, 0);
+  const balance = incomeTotal - total;
+  const prevBalance = prevIncomeTotal - prevTotal;
+  const savingsRate = incomeTotal > 0 ? (balance / incomeTotal) * 100 : null;
 
   const byCategory = expenses.reduce<Record<string, { name: string; color: string; total: number; count: number }>>((acc, e) => {
     const key = e.category.name;
@@ -134,6 +154,11 @@ export async function GET(req: Request) {
   return NextResponse.json({
     total,
     prevTotal,
+    incomeTotal,
+    prevIncomeTotal,
+    balance,
+    prevBalance,
+    savingsRate,
     count: expenses.length,
     byCategory: Object.values(byCategory).sort((a, b) => b.total - a.total),
     dailyTotals,

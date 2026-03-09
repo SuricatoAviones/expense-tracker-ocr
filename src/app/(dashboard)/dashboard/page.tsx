@@ -20,6 +20,11 @@ interface RecentExpense {
 interface Stats {
   total: number;
   prevTotal: number;
+  incomeTotal: number;
+  prevIncomeTotal: number;
+  balance: number;
+  prevBalance: number;
+  savingsRate: number | null;
   count: number;
   byCategory: { name: string; color: string; total: number; count: number }[];
   dailyTotals: { date: string; amount: number; cumulative: number }[];
@@ -46,6 +51,9 @@ export default function DashboardPage() {
 
   const monthDiff = stats.prevTotal > 0
     ? Math.round(((stats.total - stats.prevTotal) / stats.prevTotal) * 100)
+    : null;
+  const incomeDiff = stats.prevIncomeTotal > 0
+    ? Math.round(((stats.incomeTotal - stats.prevIncomeTotal) / stats.prevIncomeTotal) * 100)
     : null;
 
   const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -99,9 +107,9 @@ export default function DashboardPage() {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Total del Mes</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Gastos del Mes</p>
           <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">${stats.total.toFixed(2)}</p>
           {monthDiff !== null && (
             <p className={`text-xs mt-1 font-medium ${monthDiff > 0 ? "text-red-500 dark:text-red-400" : "text-green-500 dark:text-green-400"}`}>
@@ -110,10 +118,36 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Ingresos del Mes</p>
+          <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">${stats.incomeTotal.toFixed(2)}</p>
+          {incomeDiff !== null && (
+            <p className={`text-xs mt-1 font-medium ${incomeDiff >= 0 ? "text-green-500 dark:text-green-400" : "text-red-500 dark:text-red-400"}`}>
+              {incomeDiff > 0 ? "+" : ""}{incomeDiff}% vs mes anterior
+            </p>
+          )}
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Balance</p>
+          <p className={`text-3xl font-bold ${stats.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+            ${stats.balance.toFixed(2)}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">Ingresos - gastos</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Transacciones</p>
           <p className="text-3xl font-bold">{stats.count}</p>
           <p className="text-xs text-gray-400 mt-1">{stats.byCategory.length} categorias</p>
         </div>
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Tasa de Ahorro</p>
+          <p className={`text-3xl font-bold ${stats.savingsRate !== null && stats.savingsRate < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+            {stats.savingsRate === null ? "-" : `${stats.savingsRate.toFixed(1)}%`}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">(Balance / Ingresos)</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Promedio por Gasto</p>
           <p className="text-3xl font-bold">${stats.count ? (stats.total / stats.count).toFixed(2) : "0.00"}</p>
