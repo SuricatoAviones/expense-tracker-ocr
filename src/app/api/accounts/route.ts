@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseCurrency } from "@/lib/currency";
 
 export async function GET() {
   const session = await getSession();
@@ -15,11 +16,11 @@ export async function GET() {
     accounts.map(async (account) => {
       const [incomeAgg, expenseAgg] = await Promise.all([
         prisma.income.aggregate({
-          where: { userId: session.id, accountId: account.id },
+          where: { userId: session.id, accountId: account.id, currency: account.currency },
           _sum: { amount: true },
         }),
         prisma.expense.aggregate({
-          where: { userId: session.id, accountId: account.id },
+          where: { userId: session.id, accountId: account.id, currency: account.currency },
           _sum: { amount: true },
         }),
       ]);
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, type, initialBalance } = body;
+    const { name, type, initialBalance, currency } = body;
 
     if (!name || !String(name).trim()) {
       return NextResponse.json({ error: "El nombre es requerido" }, { status: 400 });
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
       data: {
         name: String(name).trim(),
         type: type ? String(type).trim() : "bank",
+        currency: parseCurrency(currency),
         initialBalance: initialBalance ? Number(initialBalance) : 0,
         userId: session.id,
       },

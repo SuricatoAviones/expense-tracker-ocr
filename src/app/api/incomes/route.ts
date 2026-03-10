@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseCurrency } from "@/lib/currency";
 
 export async function GET(req: Request) {
   const session = await getSession();
@@ -10,6 +11,7 @@ export async function GET(req: Request) {
   const month = url.searchParams.get("month");
   const year = url.searchParams.get("year");
   const accountId = url.searchParams.get("accountId");
+  const currency = url.searchParams.get("currency");
 
   const where: Record<string, unknown> = { userId: session.id };
 
@@ -21,6 +23,10 @@ export async function GET(req: Request) {
 
   if (accountId) {
     where.accountId = accountId;
+  }
+
+  if (currency) {
+    where.currency = parseCurrency(currency);
   }
 
   const incomes = await prisma.income.findMany({
@@ -52,6 +58,7 @@ export async function POST(req: Request) {
     const income = await prisma.income.create({
       data: {
         amount: Number(amount),
+        currency: account.currency,
         description,
         date: date ? new Date(date) : new Date(),
         accountId,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CurrencyCode, getCurrencyLabel } from "@/lib/currency";
 
 interface Category {
   id: string;
@@ -10,6 +11,7 @@ interface Category {
 interface Account {
   id: string;
   name: string;
+  currency: CurrencyCode;
 }
 
 export default function ScanPage() {
@@ -236,7 +238,7 @@ export default function ScanPage() {
                   >
                     <option value="">Seleccionar cuenta</option>
                     {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
+                      <option key={a.id} value={a.id}>{a.name} ({getCurrencyLabel(a.currency)})</option>
                     ))}
                   </select>
                 </div>

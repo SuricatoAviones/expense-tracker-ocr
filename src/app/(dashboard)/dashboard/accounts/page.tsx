@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CurrencyCode, formatCurrency, getCurrencyLabel, SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 interface Account {
   id: string;
   name: string;
   type: string;
+  currency: CurrencyCode;
   initialBalance: number;
   currentBalance: number;
   incomeTotal: number;
@@ -22,7 +24,7 @@ const accountTypes = [
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [form, setForm] = useState({ name: "", type: "bank", initialBalance: "0" });
+  const [form, setForm] = useState({ name: "", type: "bank", currency: "USD" as CurrencyCode, initialBalance: "0" });
   const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -49,6 +51,7 @@ export default function AccountsPage() {
         body: JSON.stringify({
           name: form.name,
           type: form.type,
+          currency: form.currency,
           initialBalance: Number(form.initialBalance || 0),
         }),
       });
@@ -59,7 +62,7 @@ export default function AccountsPage() {
         return;
       }
 
-      setForm({ name: "", type: "bank", initialBalance: "0" });
+      setForm({ name: "", type: "bank", currency: "USD", initialBalance: "0" });
       setEditId(null);
       loadAccounts();
     } finally {
@@ -86,6 +89,7 @@ export default function AccountsPage() {
     setForm({
       name: account.name,
       type: account.type,
+      currency: account.currency,
       initialBalance: String(account.initialBalance),
     });
     setError("");
@@ -93,7 +97,7 @@ export default function AccountsPage() {
 
   function handleCancel() {
     setEditId(null);
-    setForm({ name: "", type: "bank", initialBalance: "0" });
+    setForm({ name: "", type: "bank", currency: "USD", initialBalance: "0" });
     setError("");
   }
 
@@ -109,7 +113,7 @@ export default function AccountsPage() {
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700 space-y-4">
         <h2 className="font-semibold">{editId ? "Editar Cuenta" : "Nueva Cuenta"}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <input
             type="text"
             placeholder="Nombre (ej: BBVA, PayPal, Wise)"
@@ -137,6 +141,17 @@ export default function AccountsPage() {
             onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
             className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
           />
+          <select
+            value={form.currency}
+            onChange={(e) => setForm({ ...form, currency: e.target.value as CurrencyCode })}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+          >
+            {SUPPORTED_CURRENCIES.map((currency) => (
+              <option key={currency} value={currency}>
+                {getCurrencyLabel(currency)}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex gap-2">
           <button
@@ -171,17 +186,17 @@ export default function AccountsPage() {
                 <div>
                   <p className="font-medium">{account.name}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Tipo: {accountTypes.find((t) => t.value === account.type)?.label || "Otra"}
+                    Tipo: {accountTypes.find((t) => t.value === account.type)?.label || "Otra"} - {getCurrencyLabel(account.currency)}
                   </p>
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="text-right">
                     <p className="text-xs text-gray-500 dark:text-gray-400">Saldo actual</p>
                     <p className={`font-semibold ${account.currentBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                      ${account.currentBalance.toFixed(2)}
+                      {formatCurrency(account.currentBalance, account.currency)}
                     </p>
                     <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                      +${account.incomeTotal.toFixed(2)} / -${account.expenseTotal.toFixed(2)}
+                      +{formatCurrency(account.incomeTotal, account.currency)} / -{formatCurrency(account.expenseTotal, account.currency)}
                     </p>
                   </div>
                   <button

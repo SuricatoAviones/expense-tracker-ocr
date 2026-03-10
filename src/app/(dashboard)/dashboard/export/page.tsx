@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { CurrencyCode, getCurrencyLabel, SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 export default function ExportPage() {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [reportType, setReportType] = useState<"expenses" | "incomes">("expenses");
+  const [currency, setCurrency] = useState<CurrencyCode>("USD");
 
   function handleExport() {
-    window.open(`/api/${reportType}/export?month=${month}&year=${year}`, "_blank");
+    window.open(`/api/${reportType}/export?month=${month}&year=${year}&currency=${currency}`, "_blank");
   }
 
   return (
@@ -29,6 +31,18 @@ export default function ExportPage() {
           >
             <option value="expenses">Gastos</option>
             <option value="incomes">Ingresos</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-sm font-medium block mb-1">Moneda</label>
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+          >
+            {SUPPORTED_CURRENCIES.map((c) => (
+              <option key={c} value={c}>{getCurrencyLabel(c)}</option>
+            ))}
           </select>
         </div>
         <div className="flex gap-4">

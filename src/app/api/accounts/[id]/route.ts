@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseCurrency } from "@/lib/currency";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -18,6 +19,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       data: {
         name: body.name ? String(body.name).trim() : undefined,
         type: body.type ? String(body.type).trim() : undefined,
+        currency: body.currency ? parseCurrency(body.currency) : undefined,
         initialBalance: body.initialBalance !== undefined ? Number(body.initialBalance) : undefined,
       },
     });

@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Currency {
+  USD
+  VES
+}
+
 model User {
   id        String    @id @default(cuid())
   email     String    @unique
@@ -31,6 +36,7 @@ model Category {
 model Expense {
   id          String   @id @default(cuid())
   amount      Float
+  currency    Currency @default(USD)
   description String
   date        DateTime @default(now())
   receipt     String?
@@ -47,6 +53,7 @@ model Expense {
 model Budget {
   id         String   @id @default(cuid())
   amount     Float
+  currency   Currency @default(USD)
   month      Int
   year       Int
   userId     String
@@ -55,12 +62,13 @@ model Budget {
   category   Category @relation(fields: [categoryId], references: [id])
   createdAt  DateTime @default(now())
 
-  @@unique([userId, categoryId, month, year])
+  @@unique([userId, categoryId, month, year, currency])
 }
 
 model Income {
   id          String   @id @default(cuid())
   amount      Float
+  currency    Currency @default(USD)
   description String
   date        DateTime @default(now())
   userId      String
@@ -74,6 +82,7 @@ model Account {
   id             String    @id @default(cuid())
   name           String
   type           String    @default("bank")
+  currency       Currency  @default(USD)
   initialBalance Float     @default(0)
   userId         String
   user           User      @relation(fields: [userId], references: [id])

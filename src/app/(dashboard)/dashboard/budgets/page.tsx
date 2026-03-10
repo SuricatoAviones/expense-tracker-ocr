@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CurrencyCode, formatCurrency, getCurrencyLabel, SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 interface Category {
   id: string;
@@ -11,6 +12,7 @@ interface Category {
 interface Budget {
   id: string;
   amount: number;
+  currency: CurrencyCode;
   month: number;
   year: number;
   category: Category;
@@ -24,15 +26,16 @@ export default function BudgetsPage() {
   const [year] = useState(now.getFullYear());
   const [form, setForm] = useState({ amount: "", categoryId: "" });
   const [stats, setStats] = useState<Record<string, number>>({});
+  const [currency, setCurrency] = useState<CurrencyCode>("USD");
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currency]);
 
   function loadData() {
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
-    fetch(`/api/budgets?month=${month}&year=${year}`).then((r) => r.json()).then(setBudgets);
-    fetch(`/api/expenses/stats?month=${month}&year=${year}`)
+    fetch(`/api/budgets?month=${month}&year=${year}&currency=${currency}`).then((r) => r.json()).then(setBudgets);
+    fetch(`/api/expenses/stats?month=${month}&year=${year}&currency=${currency}`)
       .then((r) => r.json())
       .then((s) => {
         const map: Record<string, number> = {};
@@ -46,7 +49,7 @@ export default function BudgetsPage() {
     await fetch("/api/budgets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, month, year }),
+      body: JSON.stringify({ ...form, month, year, currency }),
     });
     setForm({ amount: "", categoryId: "" });
     loadData();
@@ -55,6 +58,19 @@ export default function BudgetsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Presupuestos - {month}/{year}</h1>
+
+      <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border dark:border-gray-700 flex items-center gap-3 w-fit">
+        <span className="text-sm text-gray-500 dark:text-gray-400">Moneda activa</span>
+        <select
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+          className="text-sm px-3 py-1.5 border dark:border-gray-600 rounded-lg outline-none bg-white dark:bg-gray-700 dark:text-gray-100"
+        >
+          {SUPPORTED_CURRENCIES.map((c) => (
+            <option key={c} value={c}>{getCurrencyLabel(c)}</option>
+          ))}
+        </select>
+      </div>
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700 flex flex-wrap gap-4 items-end">
         <div>
@@ -106,7 +122,7 @@ export default function BudgetsPage() {
                     <span className="font-medium">{b.category.name}</span>
                   </div>
                   <span className={`text-sm font-semibold ${over ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-300"}`}>
-                    ${spent.toFixed(2)} / ${b.amount.toFixed(2)}
+                    {formatCurrency(spent, currency)} / {formatCurrency(b.amount, currency)}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CurrencyCode, formatCurrency, getCurrencyLabel, SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 interface Category {
   id: string;
@@ -11,6 +12,7 @@ interface Category {
 interface Expense {
   id: string;
   amount: number;
+  currency: CurrencyCode;
   description: string;
   date: string;
   accountId: string | null;
@@ -22,6 +24,7 @@ interface Expense {
 interface Account {
   id: string;
   name: string;
+  currency: CurrencyCode;
 }
 
 export default function ExpensesPage() {
@@ -33,6 +36,7 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(false);
   const [categorizing, setCategorizing] = useState(false);
   const [filterCat, setFilterCat] = useState("");
+  const [currency, setCurrency] = useState<CurrencyCode>("USD");
 
   useEffect(() => {
     loadExpenses();
@@ -42,11 +46,14 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     loadExpenses();
-  }, [filterCat]);
+  }, [filterCat, currency]);
+
+  const filteredAccounts = accounts.filter((a) => a.currency === currency);
 
   function loadExpenses() {
     const params = new URLSearchParams();
     if (filterCat) params.set("categoryId", filterCat);
+    params.set("currency", currency);
     fetch(`/api/expenses?${params}`).then((r) => r.json()).then(setExpenses);
   }
 
@@ -96,6 +103,22 @@ export default function ExpensesPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Gastos</h1>
 
+      <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border dark:border-gray-700 flex items-center gap-3 w-fit">
+        <span className="text-sm text-gray-500 dark:text-gray-400">Moneda activa</span>
+        <select
+          value={currency}
+          onChange={(e) => {
+            setCurrency(e.target.value as CurrencyCode);
+            setForm((f) => ({ ...f, accountId: "" }));
+          }}
+          className="text-sm px-3 py-1.5 border dark:border-gray-600 rounded-lg outline-none bg-white dark:bg-gray-700 dark:text-gray-100"
+        >
+          {SUPPORTED_CURRENCIES.map((c) => (
+            <option key={c} value={c}>{getCurrencyLabel(c)}</option>
+          ))}
+        </select>
+      </div>
+
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700 space-y-4">
         <h2 className="font-semibold">{editId ? "Editar Gasto" : "Nuevo Gasto"}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -140,7 +163,7 @@ export default function ExpensesPage() {
             required
           >
             <option value="">Cuenta</option>
-            {accounts.map((a) => (
+            {filteredAccounts.map((a) => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
@@ -222,7 +245,7 @@ export default function ExpensesPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold text-lg">${exp.amount.toFixed(2)}</span>
+                  <span className="font-semibold text-lg">{formatCurrency(exp.amount, exp.currency)}</span>
                   <button onClick={() => handleEdit(exp)} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Editar</button>
                   <button onClick={() => handleDelete(exp.id)} className="text-sm text-red-500 dark:text-red-400 hover:underline">Eliminar</button>
                 </div>

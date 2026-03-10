@@ -14,6 +14,7 @@ const navItems = [
   { href: "/dashboard/budgets", label: "Presupuestos" },
   { href: "/dashboard/categories", label: "Categorias" },
   { href: "/dashboard/export", label: "Exportar" },
+  { href: "/dashboard/tools", label: "Herramientas" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
   }
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   if (!user) {
     return (
@@ -57,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   key={item.href}
                   href={item.href}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                    pathname === item.href
+                    isActive(item.href)
                       ? "bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
                       : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
@@ -108,7 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
                 className={`block px-3 py-2 rounded-lg text-sm font-medium ${
-                  pathname === item.href
+                  isActive(item.href)
                     ? "bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
                     : "text-gray-600 dark:text-gray-300"
                 }`}

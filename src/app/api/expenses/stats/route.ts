@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseCurrency } from "@/lib/currency";
 
 export async function GET(req: Request) {
   const session = await getSession();
@@ -9,6 +10,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const month = Number(url.searchParams.get("month") || new Date().getMonth() + 1);
   const year = Number(url.searchParams.get("year") || new Date().getFullYear());
+  const currency = parseCurrency(url.searchParams.get("currency"));
 
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 1));
@@ -17,6 +19,7 @@ export async function GET(req: Request) {
   const expenses = await prisma.expense.findMany({
     where: {
       userId: session.id,
+      currency,
       date: { gte: startDate, lt: endDate },
     },
     include: { category: true, account: true },
@@ -27,6 +30,7 @@ export async function GET(req: Request) {
   const incomes = await prisma.income.findMany({
     where: {
       userId: session.id,
+      currency,
       date: { gte: startDate, lt: endDate },
     },
     include: { account: true },
@@ -34,7 +38,7 @@ export async function GET(req: Request) {
   });
 
   const accounts = await prisma.account.findMany({
-    where: { userId: session.id },
+    where: { userId: session.id, currency },
     orderBy: { createdAt: "asc" },
   });
 
@@ -44,6 +48,7 @@ export async function GET(req: Request) {
   const prevExpenses = await prisma.expense.findMany({
     where: {
       userId: session.id,
+      currency,
       date: { gte: prevStart, lt: prevEnd },
     },
   });
@@ -52,6 +57,7 @@ export async function GET(req: Request) {
   const prevIncomes = await prisma.income.findMany({
     where: {
       userId: session.id,
+      currency,
       date: { gte: prevStart, lt: prevEnd },
     },
   });
@@ -129,7 +135,7 @@ export async function GET(req: Request) {
 
   // Budgets and alerts
   const budgets = await prisma.budget.findMany({
-    where: { userId: session.id, month, year },
+    where: { userId: session.id, month, year, currency },
     include: { category: true },
   });
 
@@ -145,6 +151,7 @@ export async function GET(req: Request) {
   const recentExpenses = expenses.slice(0, 10).map((e) => ({
     id: e.id,
     amount: e.amount,
+    currency: e.currency,
     description: e.description,
     date: e.date.toISOString(),
     receipt: e.receipt,
@@ -163,6 +170,7 @@ export async function GET(req: Request) {
   const recentIncomes = incomes.slice(0, 10).map((i) => ({
     id: i.id,
     amount: i.amount,
+    currency: i.currency,
     description: i.description,
     date: i.date.toISOString(),
     account: i.account?.name || "Sin cuenta",
@@ -171,12 +179,12 @@ export async function GET(req: Request) {
   const [incomeByAccountAllTime, expenseByAccountAllTime] = await Promise.all([
     prisma.income.groupBy({
       by: ["accountId"],
-      where: { userId: session.id },
+      where: { userId: session.id, currency },
       _sum: { amount: true },
     }),
     prisma.expense.groupBy({
       by: ["accountId"],
-      where: { userId: session.id },
+      where: { userId: session.id, currency },
       _sum: { amount: true },
     }),
   ]);
@@ -211,7 +219,7 @@ export async function GET(req: Request) {
   let allTimeRecent: typeof recentExpenses = [];
   if (expenses.length === 0) {
     const latest = await prisma.expense.findMany({
-      where: { userId: session.id },
+      where: { userId: session.id, currency },
       include: { category: true },
       orderBy: { date: "desc" },
       take: 10,
@@ -219,6 +227,7 @@ export async function GET(req: Request) {
     allTimeRecent = latest.map((e) => ({
       id: e.id,
       amount: e.amount,
+      currency: e.currency,
       description: e.description,
       date: e.date.toISOString(),
       receipt: e.receipt,
@@ -227,6 +236,7 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({
+    currency,
     total,
     prevTotal,
     incomeTotal,

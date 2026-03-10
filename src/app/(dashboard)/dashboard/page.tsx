@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CurrencyCode, formatCurrency, getCurrencyLabel, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -11,6 +12,7 @@ import {
 interface RecentExpense {
   id: string;
   amount: number;
+  currency: CurrencyCode;
   description: string;
   date: string;
   receipt: string | null;
@@ -18,6 +20,7 @@ interface RecentExpense {
 }
 
 interface Stats {
+  currency: CurrencyCode;
   total: number;
   prevTotal: number;
   incomeTotal: number;
@@ -42,7 +45,7 @@ interface Stats {
   weeklyTotals: { week: string; amount: number }[];
   alerts: { category: string; budget: number; spent: number; percentage: number }[];
   recentExpenses: RecentExpense[];
-  recentIncomes: { id: string; amount: number; description: string; date: string; account: string }[];
+  recentIncomes: { id: string; amount: number; currency: CurrencyCode; description: string; date: string; account: string }[];
   topExpense: { amount: number; description: string; category: string } | null;
   topIncome: { amount: number; description: string; account: string } | null;
   allTimeRecent: RecentExpense[];
@@ -53,12 +56,13 @@ export default function DashboardPage() {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
+  const [currency, setCurrency] = useState<CurrencyCode>("USD");
 
   useEffect(() => {
-    fetch(`/api/expenses/stats?month=${month}&year=${year}`)
+    fetch(`/api/expenses/stats?month=${month}&year=${year}&currency=${currency}`)
       .then((r) => r.json())
       .then(setStats);
-  }, [month, year]);
+  }, [month, year, currency]);
 
   if (!stats) return <div className="animate-pulse text-gray-400 p-8">Cargando estadisticas...</div>;
 
@@ -70,13 +74,23 @@ export default function DashboardPage() {
     : null;
 
   const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const money = (amount: number) => formatCurrency(amount, currency);
 
   return (
     <div className="space-y-6">
       {/* Header with month selector */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+            className="px-3 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg text-sm"
+          >
+            {SUPPORTED_CURRENCIES.map((c) => (
+              <option key={c} value={c}>{getCurrencyLabel(c)}</option>
+            ))}
+          </select>
           <button
             onClick={() => {
               if (month === 1) { setMonth(12); setYear(year - 1); }
@@ -113,7 +127,7 @@ export default function DashboardPage() {
                   : "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800"
               }`}
             >
-              {a.percentage >= 100 ? "Excedido" : "Alerta"}: {a.category} - Gastado ${a.spent.toFixed(2)} de ${a.budget.toFixed(2)} ({a.percentage}%)
+              {a.percentage >= 100 ? "Excedido" : "Alerta"}: {a.category} - Gastado {money(a.spent)} de {money(a.budget)} ({a.percentage}%)
             </div>
           ))}
         </div>
@@ -123,7 +137,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Gastos del Mes</p>
-          <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">${stats.total.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{money(stats.total)}</p>
           {monthDiff !== null && (
             <p className={`text-xs mt-1 font-medium ${monthDiff > 0 ? "text-red-500 dark:text-red-400" : "text-green-500 dark:text-green-400"}`}>
               {monthDiff > 0 ? "+" : ""}{monthDiff}% vs mes anterior
@@ -132,7 +146,7 @@ export default function DashboardPage() {
         </div>
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Ingresos del Mes</p>
-          <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">${stats.incomeTotal.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{money(stats.incomeTotal)}</p>
           {incomeDiff !== null && (
             <p className={`text-xs mt-1 font-medium ${incomeDiff >= 0 ? "text-green-500 dark:text-green-400" : "text-red-500 dark:text-red-400"}`}>
               {incomeDiff > 0 ? "+" : ""}{incomeDiff}% vs mes anterior
@@ -142,7 +156,7 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Balance</p>
           <p className={`text-3xl font-bold ${stats.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-            ${stats.balance.toFixed(2)}
+            {money(stats.balance)}
           </p>
           <p className="text-xs text-gray-400 mt-1">Ingresos - gastos</p>
         </div>
@@ -163,14 +177,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Promedio por Gasto</p>
-          <p className="text-3xl font-bold">${stats.count ? (stats.total / stats.count).toFixed(2) : "0.00"}</p>
+          <p className="text-3xl font-bold">{money(stats.count ? (stats.total / stats.count) : 0)}</p>
           <p className="text-xs text-gray-400 mt-1">por transaccion</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Mayor Gasto</p>
           {stats.topExpense ? (
             <>
-              <p className="text-3xl font-bold text-orange-500 dark:text-orange-400">${stats.topExpense.amount.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-orange-500 dark:text-orange-400">{money(stats.topExpense.amount)}</p>
               <p className="text-xs text-gray-400 mt-1 truncate">{stats.topExpense.description}</p>
             </>
           ) : (
@@ -181,7 +195,7 @@ export default function DashboardPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">Mayor Ingreso</p>
           {stats.topIncome ? (
             <>
-              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">${stats.topIncome.amount.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{money(stats.topIncome.amount)}</p>
               <p className="text-xs text-gray-400 mt-1 truncate">{stats.topIncome.description} - {stats.topIncome.account}</p>
             </>
           ) : (
@@ -191,7 +205,7 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Patrimonio en Cuentas</p>
           <p className={`text-3xl font-bold ${stats.netWorth >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-            ${stats.netWorth.toFixed(2)}
+            {money(stats.netWorth)}
           </p>
           <p className="text-xs text-gray-400 mt-1">{stats.accountStats.length} cuentas activas</p>
         </div>
@@ -214,7 +228,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(8)} stroke="currentColor" opacity={0.5} />
                 <YAxis tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} />
                 <Tooltip
-                  formatter={(v, name) => [`$${Number(v).toFixed(2)}`, name === "cumulative" ? "Acumulado" : "Dia"]}
+                  formatter={(v, name) => [money(Number(v)), name === "cumulative" ? "Acumulado" : "Dia"]}
                   labelFormatter={(l) => `Dia ${String(l).slice(8)}`}
                   contentStyle={{ backgroundColor: "var(--tooltip-bg, #fff)", border: "1px solid var(--tooltip-border, #e5e7eb)", borderRadius: "8px" }}
                 />
@@ -235,7 +249,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(8)} stroke="currentColor" opacity={0.5} />
                 <YAxis tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} />
                 <Tooltip
-                  formatter={(v) => [`$${Number(v).toFixed(2)}`, "Monto"]}
+                  formatter={(v) => [money(Number(v)), "Monto"]}
                   labelFormatter={(l) => `Dia ${String(l).slice(8)}`}
                   contentStyle={{ backgroundColor: "var(--tooltip-bg, #fff)", border: "1px solid var(--tooltip-border, #e5e7eb)", borderRadius: "8px" }}
                 />
@@ -270,7 +284,7 @@ export default function DashboardPage() {
                       <Cell key={c.name} fill={c.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`]} />
+                  <Tooltip formatter={(v) => [money(Number(v))]} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="space-y-2 text-sm flex-1">
@@ -280,7 +294,7 @@ export default function DashboardPage() {
                     <div key={c.name} className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
                       <span className="flex-1">{c.name}</span>
-                      <span className="text-gray-500 dark:text-gray-400 tabular-nums">${c.total.toFixed(2)}</span>
+                      <span className="text-gray-500 dark:text-gray-400 tabular-nums">{money(c.total)}</span>
                       <span className="text-gray-400 dark:text-gray-500 text-xs w-8 text-right">{pct}%</span>
                     </div>
                   );
@@ -301,7 +315,7 @@ export default function DashboardPage() {
                 <XAxis type="number" tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} stroke="currentColor" opacity={0.5} />
                 <Tooltip
-                  formatter={(v) => [`$${Number(v).toFixed(2)}`, "Total"]}
+                  formatter={(v) => [money(Number(v)), "Total"]}
                   contentStyle={{ backgroundColor: "var(--tooltip-bg, #fff)", border: "1px solid var(--tooltip-border, #e5e7eb)", borderRadius: "8px" }}
                 />
                 <Bar dataKey="total" radius={[0, 4, 4, 0]}>
@@ -327,7 +341,7 @@ export default function DashboardPage() {
               <XAxis dataKey="week" tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} />
               <YAxis tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} />
               <Tooltip
-                formatter={(v) => [`$${Number(v).toFixed(2)}`, "Total"]}
+                formatter={(v) => [money(Number(v)), "Total"]}
                 contentStyle={{ backgroundColor: "var(--tooltip-bg, #fff)", border: "1px solid var(--tooltip-border, #e5e7eb)", borderRadius: "8px" }}
               />
               <Legend />
@@ -348,7 +362,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="account" tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} />
                 <YAxis tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} />
                 <Tooltip
-                  formatter={(v, name) => [`$${Number(v).toFixed(2)}`, name === "income" ? "Ingresos" : "Gastos"]}
+                  formatter={(v, name) => [money(Number(v)), name === "income" ? "Ingresos" : "Gastos"]}
                   contentStyle={{ backgroundColor: "var(--tooltip-bg, #fff)", border: "1px solid var(--tooltip-border, #e5e7eb)", borderRadius: "8px" }}
                 />
                 <Legend />
@@ -369,10 +383,10 @@ export default function DashboardPage() {
                 <div key={acc.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40">
                   <div>
                     <p className="font-medium text-sm">{acc.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">+${acc.incomeTotal.toFixed(2)} / -${acc.expenseTotal.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">+{money(acc.incomeTotal)} / -{money(acc.expenseTotal)}</p>
                   </div>
                   <span className={`font-semibold ${acc.currentBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                    ${acc.currentBalance.toFixed(2)}
+                    {money(acc.currentBalance)}
                   </span>
                 </div>
               ))}
@@ -400,7 +414,7 @@ export default function DashboardPage() {
                     {income.account} - {new Date(income.date).toLocaleDateString("es")}
                   </p>
                 </div>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">${income.amount.toFixed(2)}</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{money(income.amount)}</span>
               </div>
             ))}
           </div>
@@ -449,7 +463,7 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <span className="font-semibold">${exp.amount.toFixed(2)}</span>
+                    <span className="font-semibold">{money(exp.amount)}</span>
                   </div>
                 ))}
               </div>

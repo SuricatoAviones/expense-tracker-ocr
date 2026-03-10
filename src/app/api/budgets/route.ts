@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseCurrency } from "@/lib/currency";
 
 export async function GET(req: Request) {
   const session = await getSession();
@@ -9,9 +10,10 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const month = Number(url.searchParams.get("month") || new Date().getMonth() + 1);
   const year = Number(url.searchParams.get("year") || new Date().getFullYear());
+  const currency = parseCurrency(url.searchParams.get("currency"));
 
   const budgets = await prisma.budget.findMany({
-    where: { userId: session.id, month, year },
+    where: { userId: session.id, month, year, currency },
     include: { category: true },
   });
 
@@ -22,7 +24,8 @@ export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { amount, categoryId, month, year } = await req.json();
+  const { amount, categoryId, month, year, currency } = await req.json();
+  const normalizedCurrency = parseCurrency(currency);
 
   if (!amount || !categoryId || !month || !year) {
     return NextResponse.json({ error: "Todos los campos son requeridos" }, { status: 400 });
@@ -30,16 +33,18 @@ export async function POST(req: Request) {
 
   const budget = await prisma.budget.upsert({
     where: {
-      userId_categoryId_month_year: {
+      userId_categoryId_month_year_currency: {
         userId: session.id,
         categoryId,
         month: Number(month),
         year: Number(year),
+        currency: normalizedCurrency,
       },
     },
     update: { amount: Number(amount) },
     create: {
       amount: Number(amount),
+      currency: normalizedCurrency,
       categoryId,
       month: Number(month),
       year: Number(year),
