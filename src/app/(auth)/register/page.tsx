@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -25,6 +26,8 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      await signIn("credentials", { email, password, redirect: false });
       router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al registrar");

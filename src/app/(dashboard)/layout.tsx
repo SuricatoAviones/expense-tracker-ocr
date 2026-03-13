@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "@/lib/theme";
 
 const navItems = [
@@ -18,27 +19,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggle } = useTheme();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const { data: session, status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => setUser(d.user))
-      .catch(() => router.push("/login"));
-  }, [router]);
-
-  async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-  }
-
-  if (!user) {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-gray-400">Cargando...</div>
       </div>
     );
+  }
+
+  if (status === "unauthenticated") {
+    router.push("/login");
+    return null;
+  }
+
+  async function handleLogout() {
+    await signOut({ callbackUrl: "/login" });
   }
 
   return (
@@ -81,7 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </svg>
               )}
             </button>
-            <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:inline">{user.name}</span>
+            <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:inline">{session?.user?.name}</span>
             <button
               onClick={handleLogout}
               className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
