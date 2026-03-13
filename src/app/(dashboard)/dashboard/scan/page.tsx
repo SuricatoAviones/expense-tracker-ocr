@@ -6,6 +6,7 @@ import { CurrencyCode, getCurrencyLabel } from "@/lib/currency";
 interface Category {
   id: string;
   name: string;
+  parent?: { id: string; name: string } | null;
 }
 
 interface Account {
@@ -28,6 +29,7 @@ export default function ScanPage() {
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const categoryLabel = (c: Category) => (c.parent ? `${c.parent.name} > ${c.name}` : c.name);
 
   useEffect(() => {
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
@@ -215,7 +217,7 @@ export default function ScanPage() {
                   >
                     <option value="">Seleccionar</option>
                     {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>{categoryLabel(c)}</option>
                     ))}
                   </select>
                 </div>

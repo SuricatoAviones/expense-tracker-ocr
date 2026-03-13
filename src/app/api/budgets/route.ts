@@ -31,11 +31,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Todos los campos son requeridos" }, { status: 400 });
   }
 
+  const category = await prisma.category.findFirst({ where: { id: categoryId, userId: session.id } });
+  if (!category) {
+    return NextResponse.json({ error: "Categoria no valida" }, { status: 400 });
+  }
+
   const budget = await prisma.budget.upsert({
     where: {
       userId_categoryId_month_year_currency: {
         userId: session.id,
-        categoryId,
+        categoryId: category.id,
         month: Number(month),
         year: Number(year),
         currency: normalizedCurrency,
@@ -45,7 +50,7 @@ export async function POST(req: Request) {
     create: {
       amount: Number(amount),
       currency: normalizedCurrency,
-      categoryId,
+      categoryId: category.id,
       month: Number(month),
       year: Number(year),
       userId: session.id,

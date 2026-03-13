@@ -60,13 +60,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Cuenta no valida" }, { status: 400 });
     }
 
+    const category = await prisma.category.findFirst({ where: { id: categoryId, userId: session.id } });
+    if (!category) {
+      return NextResponse.json({ error: "Categoria no valida" }, { status: 400 });
+    }
+
     const expense = await prisma.expense.create({
       data: {
         amount: Number(amount),
         currency: account.currency,
         description,
         date: date ? new Date(date) : new Date(),
-        categoryId,
+        categoryId: category.id,
         accountId,
         receipt: receipt || null,
         ocrText: ocrText || null,

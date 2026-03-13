@@ -7,11 +7,14 @@ interface Category {
   name: string;
   icon: string;
   color: string;
+  parentId: string | null;
+  parent?: { id: string; name: string } | null;
+  children?: { id: string }[];
 }
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [form, setForm] = useState({ name: "", icon: "tag", color: "#6366f1" });
+  const [form, setForm] = useState({ name: "", icon: "tag", color: "#6366f1", parentId: "" });
   const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -44,7 +47,7 @@ export default function CategoriesPage() {
         return;
       }
 
-      setForm({ name: "", icon: "tag", color: "#6366f1" });
+      setForm({ name: "", icon: "tag", color: "#6366f1", parentId: "" });
       setEditId(null);
       loadCategories();
     } finally {
@@ -67,15 +70,26 @@ export default function CategoriesPage() {
 
   function handleEdit(cat: Category) {
     setEditId(cat.id);
-    setForm({ name: cat.name, icon: cat.icon, color: cat.color });
+    setForm({ name: cat.name, icon: cat.icon, color: cat.color, parentId: cat.parentId || "" });
     setError("");
   }
 
   function handleCancel() {
     setEditId(null);
-    setForm({ name: "", icon: "tag", color: "#6366f1" });
+    setForm({ name: "", icon: "tag", color: "#6366f1", parentId: "" });
     setError("");
   }
+
+  const parentOptions = categories
+    .filter((c) => c.id !== editId)
+    .map((c) => ({ id: c.id, label: c.parent ? `${c.parent.name} > ${c.name}` : c.name }));
+
+  const sortedCategories = [...categories].sort((a, b) => {
+    const aIsParent = a.parentId ? 1 : 0;
+    const bIsParent = b.parentId ? 1 : 0;
+    if (aIsParent !== bIsParent) return aIsParent - bIsParent;
+    return a.name.localeCompare(b.name, "es");
+  });
 
   return (
     <div className="space-y-6">
@@ -89,7 +103,7 @@ export default function CategoriesPage() {
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700 space-y-4">
         <h2 className="font-semibold">{editId ? "Editar Categoria" : "Nueva Categoria"}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <input
             type="text"
             placeholder="Nombre"
@@ -114,6 +128,16 @@ export default function CategoriesPage() {
             />
             <span className="text-sm text-gray-500 dark:text-gray-400">{form.color}</span>
           </div>
+          <select
+            value={form.parentId}
+            onChange={(e) => setForm({ ...form, parentId: e.target.value })}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+          >
+            <option value="">Categoria principal (sin padre)</option>
+            {parentOptions.map((opt) => (
+              <option key={opt.id} value={opt.id}>{opt.label}</option>
+            ))}
+          </select>
         </div>
         <div className="flex gap-2">
           <button
@@ -143,7 +167,7 @@ export default function CategoriesPage() {
           <p className="p-6 text-gray-400 text-sm">No hay categorias registradas</p>
         ) : (
           <div className="divide-y dark:divide-gray-700">
-            {categories.map((cat) => (
+            {sortedCategories.map((cat) => (
               <div key={cat.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <div className="flex items-center gap-3">
                   <div
@@ -153,8 +177,11 @@ export default function CategoriesPage() {
                     {cat.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-medium">{cat.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Icono: {cat.icon}</p>
+                    <p className="font-medium">
+                      {cat.parent ? <span className="text-gray-400 dark:text-gray-500 mr-1">&nbsp;&nbsp;&#8627;</span> : null}
+                      {cat.parent ? `${cat.parent.name} > ${cat.name}` : cat.name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Icono: {cat.icon} {cat.children && cat.children.length > 0 ? `- ${cat.children.length} subcategorias` : ""}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

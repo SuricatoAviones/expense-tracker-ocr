@@ -10,18 +10,33 @@ const categories = [
   { name: "Educacion", icon: "book", color: "#3b82f6" },
   { name: "Servicios", icon: "zap", color: "#eab308" },
   { name: "Compras", icon: "shopping-bag", color: "#14b8a6" },
+  { name: "Comisiones y tasas", icon: "percent", color: "#f59e0b" },
   { name: "Otros", icon: "tag", color: "#6b7280" },
 ];
 
 async function main() {
-  for (const cat of categories) {
-    await prisma.category.upsert({
-      where: { name: cat.name },
-      update: {},
-      create: cat,
-    });
+  const users = await prisma.user.findMany({ select: { id: true } });
+
+  for (const user of users) {
+    for (const cat of categories) {
+      await prisma.category.upsert({
+        where: {
+          userId_name: {
+            userId: user.id,
+            name: cat.name,
+          },
+        },
+        update: {},
+        create: {
+          userId: user.id,
+          name: cat.name,
+          icon: cat.icon,
+          color: cat.color,
+        },
+      });
+    }
   }
-  console.log("Seed completed: categories created");
+  console.log("Seed completed: user categories created");
 }
 
 main()

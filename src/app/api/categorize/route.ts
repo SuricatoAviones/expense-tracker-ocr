@@ -1,19 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const CATEGORIES = [
-  "Alimentacion",
-  "Transporte",
-  "Entretenimiento",
-  "Salud",
-  "Educacion",
-  "Servicios",
-  "Compras",
-  "Otros",
-];
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -26,6 +16,17 @@ export async function POST(req: Request) {
   try {
     const { description, amount } = await req.json();
 
+    const categories = await prisma.category.findMany({
+      where: { userId: session.id },
+      orderBy: [{ parentId: "asc" }, { name: "asc" }],
+    });
+
+    const categoryNames = categories.map((c) => c.name);
+
+    if (categoryNames.length === 0) {
+      return NextResponse.json({ error: "No tienes categorias creadas aun" }, { status: 400 });
+    }
+
     if (!description) {
       return NextResponse.json({ error: "Descripcion requerida" }, { status: 400 });
     }
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "system",
-          content: `Eres un clasificador de gastos. Dada la descripcion de un gasto, responde SOLO con el nombre de la categoria mas apropiada. Las categorias disponibles son: ${CATEGORIES.join(", ")}. Responde unicamente con el nombre de la categoria, nada mas.`,
+          content: `Eres un clasificador de gastos. Dada la descripcion de un gasto, responde SOLO con el nombre de la categoria mas apropiada. Las categorias disponibles son: ${categoryNames.join(", ")}. Responde unicamente con el nombre de la categoria, nada mas.`,
         },
         {
           role: "user",
@@ -46,12 +47,12 @@ export async function POST(req: Request) {
       temperature: 0,
     });
 
-    const category = response.choices[0]?.message?.content?.trim() || "Otros";
-    const matched = CATEGORIES.find((c) => c.toLowerCase() === category.toLowerCase()) || "Otros";
+    const category = response.choices[0]?.message?.content?.trim() || categoryNames[0];
+    const matched = categoryNames.find((c) => c.toLowerCase() === category.toLowerCase()) || categoryNames[0];
 
     return NextResponse.json({ category: matched });
   } catch (error) {
     console.error("Categorize error:", error);
-    return NextResponse.json({ category: "Otros" });
+    return NextResponse.json({ error: "No se pudo categorizar" }, { status: 400 });
   }
 }

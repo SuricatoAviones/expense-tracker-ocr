@@ -12,25 +12,40 @@ enum Currency {
   VES
 }
 
+enum AccountKind {
+  NATIONAL
+  INTERNATIONAL
+}
+
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  password  String
-  name      String
-  createdAt DateTime  @default(now())
-  expenses  Expense[]
-  incomes   Income[]
-  budgets   Budget[]
-  accounts  Account[]
+  id         String     @id @default(cuid())
+  email      String     @unique
+  password   String
+  name       String
+  createdAt  DateTime   @default(now())
+  categories Category[]
+  expenses   Expense[]
+  incomes    Income[]
+  budgets    Budget[]
+  accounts   Account[]
+  transfers  Transfer[]
 }
 
 model Category {
-  id       String    @id @default(cuid())
-  name     String    @unique
-  icon     String    @default("tag")
-  color    String    @default("#6366f1")
+  id       String     @id @default(cuid())
+  name     String
+  icon     String     @default("tag")
+  color    String     @default("#6366f1")
+  userId   String
+  parentId String?
+  user     User       @relation(fields: [userId], references: [id])
+  parent   Category?  @relation("CategoryChildren", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryChildren")
   expenses Expense[]
   budgets  Budget[]
+
+  @@unique([userId, name])
+  @@index([userId, parentId])
 }
 
 model Expense {
@@ -79,16 +94,42 @@ model Income {
 }
 
 model Account {
-  id             String    @id @default(cuid())
-  name           String
-  type           String    @default("bank")
-  currency       Currency  @default(USD)
-  initialBalance Float     @default(0)
-  userId         String
-  user           User      @relation(fields: [userId], references: [id])
-  incomes        Income[]
-  expenses       Expense[]
-  createdAt      DateTime  @default(now())
+  id                String      @id @default(cuid())
+  name              String
+  type              String      @default("bank")
+  kind              AccountKind @default(NATIONAL)
+  currency          Currency    @default(USD)
+  initialBalance    Float       @default(0)
+  userId            String
+  user              User        @relation(fields: [userId], references: [id])
+  incomes           Income[]
+  expenses          Expense[]
+  sentTransfers     Transfer[]  @relation("TransferFromAccount")
+  receivedTransfers Transfer[]  @relation("TransferToAccount")
+  createdAt         DateTime    @default(now())
 
-  @@unique([userId, name])
+  @@unique([userId, name, currency])
+}
+
+model Transfer {
+  id             String   @id @default(cuid())
+  sentAmount     Float
+  receivedAmount Float
+  feeAmount      Float    @default(0)
+  note           String?
+  date           DateTime @default(now())
+  sourceCurrency Currency
+  targetCurrency Currency
+  userId         String
+  fromAccountId  String
+  toAccountId    String
+  createdAt      DateTime @default(now())
+
+  user        User    @relation(fields: [userId], references: [id])
+  fromAccount Account @relation("TransferFromAccount", fields: [fromAccountId], references: [id])
+  toAccount   Account @relation("TransferToAccount", fields: [toAccountId], references: [id])
+
+  @@index([userId, date])
+  @@index([fromAccountId])
+  @@index([toAccountId])
 }

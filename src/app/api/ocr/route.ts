@@ -38,8 +38,15 @@ export async function POST(req: Request) {
     }
 
     // Get categories from database
-    const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
+    const categories = await prisma.category.findMany({
+      where: { userId: session.id },
+      orderBy: [{ parentId: "asc" }, { name: "asc" }],
+    });
     const categoryNames = categories.map((c) => c.name);
+
+    if (categoryNames.length === 0) {
+      return NextResponse.json({ error: "No tienes categorias creadas aun" }, { status: 400 });
+    }
 
     // OCR with OpenAI Vision
     const response = await openai.chat.completions.create({

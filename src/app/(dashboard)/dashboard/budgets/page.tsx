@@ -7,6 +7,7 @@ interface Category {
   id: string;
   name: string;
   color: string;
+  parent?: { id: string; name: string } | null;
 }
 
 interface Budget {
@@ -27,6 +28,7 @@ export default function BudgetsPage() {
   const [form, setForm] = useState({ amount: "", categoryId: "" });
   const [stats, setStats] = useState<Record<string, number>>({});
   const [currency, setCurrency] = useState<CurrencyCode>("USD");
+  const categoryLabel = (c: Category) => (c.parent ? `${c.parent.name} > ${c.name}` : c.name);
 
   useEffect(() => {
     loadData();
@@ -83,7 +85,7 @@ export default function BudgetsPage() {
           >
             <option value="">Seleccionar</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>{categoryLabel(c)}</option>
             ))}
           </select>
         </div>

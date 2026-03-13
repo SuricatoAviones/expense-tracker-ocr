@@ -14,7 +14,7 @@ export async function GET() {
 
   const enriched = await Promise.all(
     accounts.map(async (account) => {
-      const [incomeAgg, expenseAgg] = await Promise.all([
+      const [incomeAgg, expenseAgg, sentTransferAgg, receivedTransferAgg] = await Promise.all([
         prisma.income.aggregate({
           where: { userId: session.id, accountId: account.id, currency: account.currency },
           _sum: { amount: true },
@@ -23,16 +23,30 @@ export async function GET() {
           where: { userId: session.id, accountId: account.id, currency: account.currency },
           _sum: { amount: true },
         }),
+        prisma.transfer.aggregate({
+          where: { userId: session.id, fromAccountId: account.id, sourceCurrency: account.currency },
+          _sum: { sentAmount: true, feeAmount: true },
+        }),
+        prisma.transfer.aggregate({
+          where: { userId: session.id, toAccountId: account.id, targetCurrency: account.currency },
+          _sum: { receivedAmount: true },
+        }),
       ]);
 
       const incomeTotal = incomeAgg._sum?.amount || 0;
       const expenseTotal = expenseAgg._sum?.amount || 0;
+      const sentTotal = sentTransferAgg._sum?.sentAmount || 0;
+      const transferFeeTotal = sentTransferAgg._sum?.feeAmount || 0;
+      const receivedTotal = receivedTransferAgg._sum?.receivedAmount || 0;
 
       return {
         ...account,
         incomeTotal,
         expenseTotal,
-        currentBalance: account.initialBalance + incomeTotal - expenseTotal,
+        transferSentTotal: sentTotal,
+        transferFeeTotal,
+        transferReceivedTotal: receivedTotal,
+        currentBalance: account.initialBalance + incomeTotal - expenseTotal - sentTotal - transferFeeTotal + receivedTotal,
       };
     })
   );
@@ -47,6 +61,16 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { name, type, initialBalance, currency } = body;
+    const kindInput = body.kind ? String(body.kind).toUpperCase() : "NATIONAL";
+    const kind = kindInput === "INTERNATIONAL" ? "INTERNATIONAL" : "NATIONAL";
+    const parsedCurrency = parseCurrency(currency);
+
+    if (kind === "INTERNATIONAL" && parsedCurrency !== "USD") {
+      return NextResponse.json(
+        { error: "Las cuentas internacionales solo pueden ser en USD" },
+        { status: 400 }
+      );
+    }
 
     if (!name || !String(name).trim()) {
       return NextResponse.json({ error: "El nombre es requerido" }, { status: 400 });
@@ -56,7 +80,8 @@ export async function POST(req: Request) {
       data: {
         name: String(name).trim(),
         type: type ? String(type).trim() : "bank",
-        currency: parseCurrency(currency),
+        kind,
+        currency: parsedCurrency,
         initialBalance: initialBalance ? Number(initialBalance) : 0,
         userId: session.id,
       },

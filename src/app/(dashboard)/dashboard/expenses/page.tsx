@@ -7,6 +7,7 @@ interface Category {
   id: string;
   name: string;
   color: string;
+  parent?: { id: string; name: string } | null;
 }
 
 interface Expense {
@@ -49,6 +50,7 @@ export default function ExpensesPage() {
   }, [filterCat, currency]);
 
   const filteredAccounts = accounts.filter((a) => a.currency === currency);
+  const categoryLabel = (c: Category) => (c.parent ? `${c.parent.name} > ${c.name}` : c.name);
 
   function loadExpenses() {
     const params = new URLSearchParams();
@@ -153,7 +155,7 @@ export default function ExpensesPage() {
           >
             <option value="">Categoria</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>{categoryLabel(c)}</option>
             ))}
           </select>
           <select
@@ -219,7 +221,7 @@ export default function ExpensesPage() {
           >
             <option value="">Todas las categorias</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>{categoryLabel(c)}</option>
             ))}
           </select>
         </div>

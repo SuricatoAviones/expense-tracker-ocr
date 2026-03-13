@@ -7,11 +7,15 @@ interface Account {
   id: string;
   name: string;
   type: string;
+  kind: "NATIONAL" | "INTERNATIONAL";
   currency: CurrencyCode;
   initialBalance: number;
   currentBalance: number;
   incomeTotal: number;
   expenseTotal: number;
+  transferSentTotal: number;
+  transferFeeTotal: number;
+  transferReceivedTotal: number;
 }
 
 const accountTypes = [
@@ -24,7 +28,13 @@ const accountTypes = [
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [form, setForm] = useState({ name: "", type: "bank", currency: "USD" as CurrencyCode, initialBalance: "0" });
+  const [form, setForm] = useState({
+    name: "",
+    type: "bank",
+    kind: "NATIONAL" as "NATIONAL" | "INTERNATIONAL",
+    currency: "VES" as CurrencyCode,
+    initialBalance: "0",
+  });
   const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -51,6 +61,7 @@ export default function AccountsPage() {
         body: JSON.stringify({
           name: form.name,
           type: form.type,
+          kind: form.kind,
           currency: form.currency,
           initialBalance: Number(form.initialBalance || 0),
         }),
@@ -62,7 +73,7 @@ export default function AccountsPage() {
         return;
       }
 
-      setForm({ name: "", type: "bank", currency: "USD", initialBalance: "0" });
+      setForm({ name: "", type: "bank", kind: "NATIONAL", currency: "VES", initialBalance: "0" });
       setEditId(null);
       loadAccounts();
     } finally {
@@ -89,6 +100,7 @@ export default function AccountsPage() {
     setForm({
       name: account.name,
       type: account.type,
+      kind: account.kind,
       currency: account.currency,
       initialBalance: String(account.initialBalance),
     });
@@ -97,9 +109,13 @@ export default function AccountsPage() {
 
   function handleCancel() {
     setEditId(null);
-    setForm({ name: "", type: "bank", currency: "USD", initialBalance: "0" });
+    setForm({ name: "", type: "bank", kind: "NATIONAL", currency: "VES", initialBalance: "0" });
     setError("");
   }
+
+  const availableCurrencies = form.kind === "INTERNATIONAL"
+    ? SUPPORTED_CURRENCIES.filter((c) => c === "USD")
+    : SUPPORTED_CURRENCIES;
 
   return (
     <div className="space-y-6">
@@ -113,7 +129,10 @@ export default function AccountsPage() {
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border dark:border-gray-700 space-y-4">
         <h2 className="font-semibold">{editId ? "Editar Cuenta" : "Nueva Cuenta"}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Tip: para una cuenta nacional con Bs y USD (ej: Banco de Venezuela), crea dos cuentas con el mismo nombre y distinta moneda.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <input
             type="text"
             placeholder="Nombre (ej: BBVA, PayPal, Wise)"
@@ -133,6 +152,21 @@ export default function AccountsPage() {
               </option>
             ))}
           </select>
+          <select
+            value={form.kind}
+            onChange={(e) => {
+              const kind = e.target.value as "NATIONAL" | "INTERNATIONAL";
+              setForm((prev) => ({
+                ...prev,
+                kind,
+                currency: kind === "INTERNATIONAL" ? "USD" : prev.currency,
+              }));
+            }}
+            className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
+          >
+            <option value="NATIONAL">Nacional</option>
+            <option value="INTERNATIONAL">Internacional</option>
+          </select>
           <input
             type="number"
             step="0.01"
@@ -146,7 +180,7 @@ export default function AccountsPage() {
             onChange={(e) => setForm({ ...form, currency: e.target.value as CurrencyCode })}
             className="px-4 py-2 border dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-gray-100"
           >
-            {SUPPORTED_CURRENCIES.map((currency) => (
+            {availableCurrencies.map((currency) => (
               <option key={currency} value={currency}>
                 {getCurrencyLabel(currency)}
               </option>
@@ -186,7 +220,7 @@ export default function AccountsPage() {
                 <div>
                   <p className="font-medium">{account.name}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Tipo: {accountTypes.find((t) => t.value === account.type)?.label || "Otra"} - {getCurrencyLabel(account.currency)}
+                    {account.kind === "NATIONAL" ? "Nacional" : "Internacional"} - {accountTypes.find((t) => t.value === account.type)?.label || "Otra"} - {getCurrencyLabel(account.currency)}
                   </p>
                 </div>
                 <div className="flex items-center gap-6">
@@ -197,6 +231,9 @@ export default function AccountsPage() {
                     </p>
                     <p className="text-[11px] text-gray-400 dark:text-gray-500">
                       +{formatCurrency(account.incomeTotal, account.currency)} / -{formatCurrency(account.expenseTotal, account.currency)}
+                    </p>
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                      T: -{formatCurrency(account.transferSentTotal + account.transferFeeTotal, account.currency)} / +{formatCurrency(account.transferReceivedTotal, account.currency)}
                     </p>
                   </div>
                   <button

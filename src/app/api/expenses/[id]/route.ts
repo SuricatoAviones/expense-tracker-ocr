@@ -34,6 +34,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     accountCurrency = account.currency;
   }
 
+  if (body.categoryId) {
+    const category = await prisma.category.findFirst({ where: { id: body.categoryId, userId: session.id } });
+    if (!category) return NextResponse.json({ error: "Categoria no valida" }, { status: 400 });
+  }
+
   const updated = await prisma.expense.update({
     where: { id },
     data: {
