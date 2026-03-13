@@ -13,6 +13,7 @@ const navItems = [
   { href: "/dashboard/budgets", label: "Presupuestos" },
   { href: "/dashboard/categories", label: "Categorias" },
   { href: "/dashboard/export", label: "Exportar" },
+  { href: "/dashboard/users", label: "Usuarios" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
