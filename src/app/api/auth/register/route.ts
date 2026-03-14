@@ -3,16 +3,61 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signToken } from "@/lib/auth";
 
-const defaultCategories = [
-  { name: "Alimentacion", icon: "utensils", color: "#ef4444" },
-  { name: "Transporte", icon: "car", color: "#f97316" },
-  { name: "Entretenimiento", icon: "gamepad", color: "#a855f7" },
-  { name: "Salud", icon: "heart", color: "#ec4899" },
-  { name: "Educacion", icon: "book", color: "#3b82f6" },
-  { name: "Servicios", icon: "zap", color: "#eab308" },
-  { name: "Compras", icon: "shopping-bag", color: "#14b8a6" },
-  { name: "Comisiones y tasas", icon: "percent", color: "#f59e0b" },
-  { name: "Otros", icon: "tag", color: "#6b7280" },
+const defaultCategoryTree = [
+  {
+    name: "Alimentacion",
+    icon: "utensils",
+    color: "#ef4444",
+    children: ["Supermercado", "Restaurante", "Delivery"],
+  },
+  {
+    name: "Transporte",
+    icon: "car",
+    color: "#f97316",
+    children: ["Gasolina", "Transporte publico", "Taxi"],
+  },
+  {
+    name: "Entretenimiento",
+    icon: "gamepad",
+    color: "#a855f7",
+    children: ["Streaming", "Salidas", "Juegos"],
+  },
+  {
+    name: "Salud",
+    icon: "heart",
+    color: "#ec4899",
+    children: ["Farmacia", "Consultas", "Seguro medico"],
+  },
+  {
+    name: "Educacion",
+    icon: "book",
+    color: "#3b82f6",
+    children: ["Cursos", "Libros", "Suscripciones"],
+  },
+  {
+    name: "Servicios",
+    icon: "zap",
+    color: "#eab308",
+    children: ["Internet", "Electricidad", "Agua"],
+  },
+  {
+    name: "Compras",
+    icon: "shopping-bag",
+    color: "#14b8a6",
+    children: ["Ropa", "Hogar", "Tecnologia"],
+  },
+  {
+    name: "Comisiones y tasas",
+    icon: "percent",
+    color: "#f59e0b",
+    children: ["Comision bancaria", "Comision transferencia", "Cambio de moneda"],
+  },
+  {
+    name: "Otros",
+    icon: "tag",
+    color: "#6b7280",
+    children: ["Imprevistos", "Regalos", "Donaciones"],
+  },
 ];
 
 export async function POST(req: Request) {
@@ -34,8 +79,8 @@ export async function POST(req: Request) {
         data: { email, password: hashed, name },
       });
 
-      for (const cat of defaultCategories) {
-        await tx.category.create({
+      for (const cat of defaultCategoryTree) {
+        const parent = await tx.category.create({
           data: {
             userId: createdUser.id,
             name: cat.name,
@@ -43,6 +88,18 @@ export async function POST(req: Request) {
             color: cat.color,
           },
         });
+
+        for (const childName of cat.children) {
+          await tx.category.create({
+            data: {
+              userId: createdUser.id,
+              name: childName,
+              icon: cat.icon,
+              color: cat.color,
+              parentId: parent.id,
+            },
+          });
+        }
       }
 
       return createdUser;
