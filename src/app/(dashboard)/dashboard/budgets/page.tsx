@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CurrencyCode, formatCurrency, getCurrencyLabel, SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 interface Category {
@@ -30,11 +30,7 @@ export default function BudgetsPage() {
   const [currency, setCurrency] = useState<CurrencyCode>("USD");
   const categoryLabel = (c: Category) => (c.parent ? `${c.parent.name} > ${c.name}` : c.name);
 
-  useEffect(() => {
-    loadData();
-  }, [currency]);
-
-  function loadData() {
+  const loadData = useCallback(() => {
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
     fetch(`/api/budgets?month=${month}&year=${year}&currency=${currency}`).then((r) => r.json()).then(setBudgets);
     fetch(`/api/expenses/stats?month=${month}&year=${year}&currency=${currency}`)
@@ -44,7 +40,11 @@ export default function BudgetsPage() {
         s.byCategory?.forEach((c: { name: string; total: number }) => { map[c.name] = c.total; });
         setStats(map);
       });
-  }
+  }, [currency, month, year]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
